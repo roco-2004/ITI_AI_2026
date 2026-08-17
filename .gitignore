@@ -1,0 +1,49 @@
+# Python environments
+.venv/
+venv/
+env/
+
+# Data and archives
+data/
+datasets/
+archive/
+*.csv
+*.npy
+*.npz
+
+# Model and generated artifacts
+models/
+results/
+*.keras
+*.h5
+*.hdf5
+*.ckpt
+*.ckpt.*
+
+# Python and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+
+# Temporary audit and verification files
+.audit-venv/
+.verification-venv/
+audit-*/
+verification-*/
+*.tmp
+*.temp
+*.log
+
+# Operating-system files
+.DS_Store
+Thumbs.db
