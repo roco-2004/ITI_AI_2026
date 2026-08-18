@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,7 @@ from backend.app.main import create_app
 
 
 @pytest.fixture(scope="module")
-def client() -> TestClient:
+def client() -> Iterator[TestClient]:
     with TestClient(create_app()) as test_client:
         yield test_client
 
