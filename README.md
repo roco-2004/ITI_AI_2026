@@ -19,8 +19,6 @@ iti-ai-portfolio/
 │   ├── README.md
 │   ├── 01_CIFAR10_Baseline_CNN.ipynb
 │   └── 02_CIFAR10_Improved_CNN.ipynb
-├── Kaggle-Certificates/
-│   └── README.md
 └── Final-Project/
     └── README.md
 ```
@@ -77,6 +75,3 @@ The notebooks retain their valid saved outputs, plots, training histories, and v
 - The baseline CNN is intentionally compact and reaches lower accuracy than the improved model.
 - The improved CNN's final evaluation was reproduced from its validation-selected checkpoint; the complete 70-epoch CPU retraining was not repeated during the audit, and the checkpoint is not published.
 
-## Future additions
-
-- Two Kaggle certificates
