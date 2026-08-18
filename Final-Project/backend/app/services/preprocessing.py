@@ -245,6 +245,13 @@ def clean_raw_listings(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]
     counts["missing_or_implausible_carpet_area_rows"] = int((~valid_area).sum())
     cleaned = cleaned.loc[valid_area].copy()
 
+    # A deliberately broad, fixed integrity rule removes only obvious unit/zero corruption.
+    # Tighter 1st/99th percentile bounds are learned later from the training split alone.
+    gross_price_per_sqft = cleaned[TARGET_COLUMN] / cleaned["carpet_area_sqft"]
+    grossly_plausible = gross_price_per_sqft.between(100, 500_000, inclusive="both")
+    counts["grossly_implausible_price_area_rows"] = int((~grossly_plausible).sum())
+    cleaned = cleaned.loc[grossly_plausible].copy()
+
     sale_transaction = ~cleaned["transaction"].eq("Rent/Lease")
     counts["rental_rows"] = int((~sale_transaction).sum())
     cleaned = cleaned.loc[sale_transaction].copy()

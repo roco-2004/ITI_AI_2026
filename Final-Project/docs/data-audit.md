@@ -53,7 +53,7 @@ There are zero exact full-row duplicates because `Index` is unique. Excluding on
 - Parsed 99th percentile: ₹70,000,000
 - Parsed maximum: ₹14,003,000,000
 
-The extreme right tail is not silently removed from the full dataset. Price-per-square-foot outlier limits are learned from the training split only and then used to filter training rows, preserving an untouched, representative test set.
+Five records outside a deliberately broad ₹100–₹500,000 per-square-foot integrity range are removed from the full cleaned population because they indicate clear unit/zero corruption (including four multi-billion-rupee listings on 750–1,252 sqft). Tighter 1st/99th-percentile price-per-square-foot limits are learned from the training split only and then used to filter training rows, preserving an untouched, representative test set.
 
 ## Area formats and units
 
@@ -94,8 +94,9 @@ Deterministic cleaning produces:
 | Duplicate source listings removed | 119,339 |
 | Unusable target rows removed after deduplication | 2,937 |
 | Missing/unsupported/implausible carpet-area rows removed | 28,698 |
+| Grossly corrupted price/area rows removed | 5 |
 | Rental transaction rows removed | 1 |
-| Final cleaned modeling rows | 36,556 |
+| Final cleaned modeling rows | 36,551 |
 
 The final cleaned table has 11 input features plus the target. Missing values remain in floor, bathroom, balcony, parking, furnishing, transaction, ownership, and facing so they can be imputed inside the fitted sklearn pipeline.
 
