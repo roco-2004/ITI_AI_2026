@@ -2,7 +2,7 @@
 
 This repository presents four completed artificial intelligence notebooks from the ITI program: two classical machine-learning projects and two convolutional neural network projects. Each notebook includes its saved outputs, charts, and verified evaluation results so it can be reviewed directly on GitHub.
 
-**Status: Ready for instructor review. All notebooks include verified saved outputs; raw datasets and generated model artifacts are intentionally excluded.**
+**Status: Ready for instructor review. All notebooks include verified saved outputs; raw datasets and large training checkpoints are intentionally excluded.**
 
 ## Repository structure
 
@@ -34,6 +34,10 @@ iti-ai-portfolio/
 
 - [CIFAR-10 Baseline CNN](CNN/01_CIFAR10_Baseline_CNN.ipynb)
 - [CIFAR-10 Improved CNN](CNN/02_CIFAR10_Improved_CNN.ipynb)
+
+## Final Project
+
+- [India House Price Predictor](Final-Project/README.md) — an executed regression notebook, exported scikit-learn pipeline, FastAPI backend, React interface, tests, screenshots, and Docker Compose workflow.
 
 ## Project summary
 
@@ -76,4 +80,3 @@ The notebooks retain their valid saved outputs, plots, training histories, and v
 ## Future additions
 
 - Two Kaggle certificates
-- ITI final project
