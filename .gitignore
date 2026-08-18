@@ -47,3 +47,22 @@ verification-*/
 # Operating-system files
 .DS_Store
 Thumbs.db
+
+# ITI Final Project environments and generated data
+Final-Project/.venv/
+!Final-Project/notebooks/data/
+Final-Project/notebooks/data/*
+!Final-Project/notebooks/data/README.md
+Final-Project/**/__pycache__/
+Final-Project/**/.pytest_cache/
+Final-Project/**/.ruff_cache/
+Final-Project/**/.mypy_cache/
+Final-Project/**/.ipynb_checkpoints/
+Final-Project/frontend/node_modules/
+Final-Project/frontend/dist/
+
+# Raw and temporary dataset formats
+*.zip
+*.7z
+*.parquet
+*.parq
