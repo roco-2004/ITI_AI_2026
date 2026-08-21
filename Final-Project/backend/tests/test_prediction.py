@@ -1,4 +1,4 @@
-"""API and model-inference tests."""
+"""Tests covering API availability, validation, and model inference."""
 
 from __future__ import annotations
 
@@ -14,13 +14,17 @@ from backend.app.main import create_app
 
 
 @pytest.fixture(scope="module")
-def client() -> Iterator[TestClient]:
-    with TestClient(create_app()) as test_client:
-        yield test_client
+def api_client() -> Iterator[TestClient]:
+    """Create a reusable test client for the API."""
+
+    with TestClient(create_app()) as client:
+        yield client
 
 
 @pytest.fixture
-def valid_payload() -> dict[str, object]:
+def prediction_data() -> dict[str, object]:
+    """Return a representative valid property payload."""
+
     return {
         "location": "mumbai",
         "carpet_area_sqft": 1200.0,
@@ -36,89 +40,140 @@ def valid_payload() -> dict[str, object]:
     }
 
 
-def test_health_endpoint(client: TestClient) -> None:
-    response = client.get("/health")
+def test_health_check(api_client: TestClient) -> None:
+    response = api_client.get("/health")
+
     assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "ok"
-    assert payload["model_loaded"] is True
-    assert payload["model_version"]
+
+    data = response.json()
+
+    assert data["status"] == "ok"
+    assert data["model_loaded"] is True
+    assert data["model_version"]
 
 
-def test_locations_endpoint(client: TestClient) -> None:
-    response = client.get("/api/locations")
+def test_available_locations(api_client: TestClient) -> None:
+    response = api_client.get("/api/locations")
+
     assert response.status_code == 200
+
     locations = response.json()["locations"]
+
     assert "Other" in locations
     assert len(locations) >= 10
 
 
-def test_successful_prediction(
-    client: TestClient,
-    valid_payload: dict[str, object],
+def test_prediction_returns_valid_result(
+    api_client: TestClient,
+    prediction_data: dict[str, object],
 ) -> None:
-    response = client.post("/api/predict", json=valid_payload)
+    response = api_client.post(
+        "/api/predict",
+        json=prediction_data,
+    )
+
     assert response.status_code == 200
-    payload = response.json()
-    assert math.isfinite(payload["predicted_price"])
-    assert payload["predicted_price"] > 0
-    assert payload["formatted_price"].startswith("₹")
-    assert payload["currency"] == "INR"
-    assert payload["model_version"]
-    assert "informational" in payload["disclaimer"].lower()
+
+    result = response.json()
+
+    assert math.isfinite(result["predicted_price"])
+    assert result["predicted_price"] > 0
+    assert result["formatted_price"].startswith("₹")
+    assert result["currency"] == "INR"
+    assert result["model_version"]
+    assert "informational" in result["disclaimer"].lower()
 
 
-def test_negative_area_is_rejected(
-    client: TestClient,
-    valid_payload: dict[str, object],
+def test_area_below_allowed_range_is_rejected(
+    api_client: TestClient,
+    prediction_data: dict[str, object],
 ) -> None:
-    valid_payload["carpet_area_sqft"] = -1.0
-    assert client.post("/api/predict", json=valid_payload).status_code == 422
+    prediction_data["carpet_area_sqft"] = -1.0
+
+    response = api_client.post(
+        "/api/predict",
+        json=prediction_data,
+    )
+
+    assert response.status_code == 422
 
 
-def test_missing_required_field_is_rejected(
-    client: TestClient,
-    valid_payload: dict[str, object],
+def test_required_property_field_cannot_be_omitted(
+    api_client: TestClient,
+    prediction_data: dict[str, object],
 ) -> None:
-    valid_payload.pop("bathroom")
-    assert client.post("/api/predict", json=valid_payload).status_code == 422
+    prediction_data.pop("bathroom")
+
+    response = api_client.post(
+        "/api/predict",
+        json=prediction_data,
+    )
+
+    assert response.status_code == 422
 
 
-def test_invalid_field_type_is_rejected(
-    client: TestClient,
-    valid_payload: dict[str, object],
+def test_invalid_floor_value_is_rejected(
+    api_client: TestClient,
+    prediction_data: dict[str, object],
 ) -> None:
-    valid_payload["floor_num"] = "four"
-    assert client.post("/api/predict", json=valid_payload).status_code == 422
+    prediction_data["floor_num"] = "four"
+
+    response = api_client.post(
+        "/api/predict",
+        json=prediction_data,
+    )
+
+    assert response.status_code == 422
 
 
-def test_floor_above_total_is_rejected(
-    client: TestClient,
-    valid_payload: dict[str, object],
+def test_current_floor_cannot_exceed_building_height(
+    api_client: TestClient,
+    prediction_data: dict[str, object],
 ) -> None:
-    valid_payload["floor_num"] = 13
-    valid_payload["total_floors"] = 12
-    assert client.post("/api/predict", json=valid_payload).status_code == 422
+    prediction_data["floor_num"] = 13
+    prediction_data["total_floors"] = 12
+
+    response = api_client.post(
+        "/api/predict",
+        json=prediction_data,
+    )
+
+    assert response.status_code == 422
 
 
-def test_unknown_location_maps_safely(
-    client: TestClient,
-    valid_payload: dict[str, object],
+def test_unseen_location_is_handled(
+    api_client: TestClient,
+    prediction_data: dict[str, object],
 ) -> None:
-    valid_payload["location"] = "A location absent from training"
-    response = client.post("/api/predict", json=valid_payload)
+    prediction_data["location"] = (
+        "A location absent from training"
+    )
+
+    response = api_client.post(
+        "/api/predict",
+        json=prediction_data,
+    )
+
     assert response.status_code == 200
-    assert math.isfinite(response.json()["predicted_price"])
+    assert math.isfinite(
+        response.json()["predicted_price"]
+    )
 
 
-def test_model_load_failure_is_clear(tmp_path: Path) -> None:
+def test_missing_model_artifacts_raise_clear_error(
+    tmp_path: Path,
+) -> None:
     settings = Settings(
         model_path=tmp_path / "missing.pkl",
         locations_path=tmp_path / "missing-locations.json",
         metadata_path=tmp_path / "missing-metadata.json",
     )
+
     with (
-        pytest.raises(RuntimeError, match="Required model artifact is missing"),
+        pytest.raises(
+            RuntimeError,
+            match="Required model artifact is missing",
+        ),
         TestClient(create_app(settings)),
     ):
         pass
