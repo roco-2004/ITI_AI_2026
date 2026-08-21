@@ -1,26 +1,4 @@
-# Python environments
-.venv/
-venv/
-env/
-
-# Data and archives
-data/
-datasets/
-archive/
-*.csv
-*.npy
-*.npz
-
-# Model and generated artifacts
-models/
-results/
-*.keras
-*.h5
-*.hdf5
-*.ckpt
-*.ckpt.*
-
-# Python and test caches
+# Python cache
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -28,48 +6,76 @@ __pycache__/
 .ruff_cache/
 .ipynb_checkpoints/
 
-# Credentials and local configuration
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
 .env
 .env.*
 !.env.example
+
+# Python generated files
+*.log
+*.tmp
+*.temp
+
+# Data files
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.npz
+*.npy
+
+# Machine Learning generated files
+*.h5
+*.hdf5
+*.keras
+*.ckpt
+*.ckpt.*
+
+# Keep trained project models
+!Final-Project/models/
+!Final-Project/models/house_price.pkl
+!Final-Project/models/locations.json
+!Final-Project/models/model_metadata.json
+
+# Frontend dependencies
+Final-Project/frontend/node_modules/
+
+# Frontend build output
+Final-Project/frontend/dist/
+Final-Project/frontend/build/
+
+# Playwright output
+Final-Project/frontend/playwright-report/
+Final-Project/frontend/test-results/
+
+# IDE settings
 .vscode/
 .idea/
 
-# Temporary audit and verification files
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Archives
+*.zip
+*.7z
+*.tar
+*.gz
+
+# Temporary verification environments
 .audit-venv/
 .verification-venv/
 audit-*/
 verification-*/
-*.tmp
-*.temp
-*.log
 
-# Operating-system files
-.DS_Store
-Thumbs.db
-
-# ITI Final Project environments and generated data
-Final-Project/.venv/
-!Final-Project/notebooks/data/
-Final-Project/notebooks/data/*
-!Final-Project/notebooks/data/README.md
+# Python bytecode inside Final Project
 Final-Project/**/__pycache__/
 Final-Project/**/.pytest_cache/
 Final-Project/**/.ruff_cache/
 Final-Project/**/.mypy_cache/
 Final-Project/**/.ipynb_checkpoints/
-Final-Project/frontend/node_modules/
-Final-Project/frontend/dist/
-Final-Project/frontend/playwright-report/
-Final-Project/frontend/test-results/
-!Final-Project/models/
-Final-Project/models/*
-!Final-Project/models/house_price.pkl
-!Final-Project/models/locations.json
-!Final-Project/models/model_metadata.json
-
-# Raw and temporary dataset formats
-*.zip
-*.7z
-*.parquet
-*.parq
