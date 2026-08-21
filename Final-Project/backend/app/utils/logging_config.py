@@ -1,4 +1,4 @@
-"""Small JSON logging configuration for local and container runtimes."""
+"""Logging setup used by the application."""
 
 from __future__ import annotations
 
@@ -8,26 +8,35 @@ from datetime import UTC, datetime
 
 
 class JsonFormatter(logging.Formatter):
-    """Emit stable structured log records without external dependencies."""
+    """Format log messages as compact JSON records."""
 
     def format(self, record: logging.LogRecord) -> str:
-        payload = {
+        log_data = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
         }
+
         if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
-        return json.dumps(payload, ensure_ascii=False)
+            log_data["exception"] = self.formatException(
+                record.exc_info
+            )
+
+        return json.dumps(
+            log_data,
+            ensure_ascii=False,
+        )
 
 
 def configure_logging(level: str = "INFO") -> None:
-    """Configure the root logger once."""
+    """Initialize application-wide logging."""
+
+    root_logger = logging.getLogger()
 
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
-    root = logging.getLogger()
-    root.handlers.clear()
-    root.addHandler(handler)
-    root.setLevel(level.upper())
+
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+    root_logger.setLevel(level.upper())
