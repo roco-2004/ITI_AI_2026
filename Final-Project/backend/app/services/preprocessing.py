@@ -1,9 +1,4 @@
-"""Reusable parsing, cleaning, and category-grouping utilities.
-
-Raw listings are transformed into a deliberately small, documented feature schema. The
-functions are used by the executed notebook and are importable when the serialized sklearn
-pipeline is loaded by FastAPI.
-"""
+"""Data parsing and preprocessing helpers for the house price model."""
 
 from __future__ import annotations
 
@@ -14,6 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
+
 
 RANDOM_SEED = 42
 TARGET_COLUMN = "price_rupees"
@@ -26,9 +22,21 @@ NUMERIC_FEATURES = [
     "balcony",
     "parking",
 ]
+
 LOCATION_FEATURE = ["location"]
-CATEGORICAL_FEATURES = ["furnishing", "transaction", "ownership", "facing"]
-FEATURE_NAMES = NUMERIC_FEATURES + LOCATION_FEATURE + CATEGORICAL_FEATURES
+
+CATEGORICAL_FEATURES = [
+    "furnishing",
+    "transaction",
+    "ownership",
+    "facing",
+]
+
+FEATURE_NAMES = (
+    NUMERIC_FEATURES
+    + LOCATION_FEATURE
+    + CATEGORICAL_FEATURES
+)
 
 AREA_UNIT_FACTORS = {
     "sqft": 1.0,
@@ -42,29 +50,43 @@ AREA_UNIT_FACTORS = {
     "ground": 2_400.0,
 }
 
-# Bigha, biswa, and aankadam vary by region or lack enough context in this dataset. They are
-# recognized but intentionally returned as missing rather than converted with false precision.
-AMBIGUOUS_AREA_UNITS = {"bigha", "biswa", "aankadam"}
+# These units are kept as unresolved because their conversion depends
+# on the geographical context of the property.
+AMBIGUOUS_AREA_UNITS = {
+    "bigha",
+    "biswa",
+    "aankadam",
+}
 
 
-def _missing(value: Any) -> bool:
-    """Return True for scalar missing values without applying pd.isna to arrays."""
+def _is_missing(value: Any) -> bool:
+    """Check whether a scalar value represents missing data."""
 
-    return value is None or (isinstance(value, float) and np.isnan(value))
+    return value is None or (
+        isinstance(value, float) and np.isnan(value)
+    )
 
 
 def parse_price_rupees(value: Any) -> float:
-    """Parse an Indian property price into rupees; return NaN when unavailable."""
+    """Convert a property price representation into Indian rupees."""
 
-    if _missing(value):
+    if _is_missing(value):
         return np.nan
+
     if isinstance(value, int | float | np.number):
-        numeric = float(value)
-        return numeric if np.isfinite(numeric) and numeric > 0 else np.nan
+        amount = float(value)
+        return amount if np.isfinite(amount) and amount > 0 else np.nan
 
     text = str(value).strip().lower()
-    unavailable = ("call for price", "available on request", "price on request", "contact")
-    if not text or any(marker in text for marker in unavailable):
+
+    unavailable_markers = (
+        "call for price",
+        "available on request",
+        "price on request",
+        "contact",
+    )
+
+    if not text or any(marker in text for marker in unavailable_markers):
         return np.nan
 
     cleaned = (
@@ -74,28 +96,60 @@ def parse_price_rupees(value: Any) -> float:
         .replace("rs", "")
         .replace(",", "")
     )
+
     match = re.search(r"[-+]?\d*\.?\d+", cleaned)
-    if not match:
+
+    if match is None:
         return np.nan
 
-    number = float(match.group())
+    amount = float(match.group())
+
     if re.search(r"\b(cr|crore|crores)\b", cleaned):
-        number *= 10_000_000
+        amount *= 10_000_000
     elif re.search(r"\b(lac|lacs|lakh|lakhs)\b", cleaned):
-        number *= 100_000
+        amount *= 100_000
     elif re.search(r"\b(thousand|k)\b", cleaned):
-        number *= 1_000
-    return number if np.isfinite(number) and number > 0 else np.nan
+        amount *= 1_000
+
+    return (
+        amount
+        if np.isfinite(amount) and amount > 0
+        else np.nan
+    )
 
 
 def _detect_area_unit(text: str) -> str | None:
-    normalized = text.lower().replace(".", "").replace(" ", "")
-    patterns = (
+    """Identify the area unit contained in a raw text value."""
+
+    normalized = (
+        text.lower()
+        .replace(".", "")
+        .replace(" ", "")
+    )
+
+    unit_patterns = (
         ("hectare", ("hectare", "hectares")),
         ("acre", ("acre", "acres")),
         ("sqyrd", ("sqyrd", "sqyard", "squareyard", "sqyd")),
-        ("sqm", ("sqm", "sqmeter", "squaremeter", "sqmetre", "squaremetre")),
-        ("sqft", ("sqft", "sqfeet", "squarefeet", "squarefoot")),
+        (
+            "sqm",
+            (
+                "sqm",
+                "sqmeter",
+                "squaremeter",
+                "sqmetre",
+                "squaremetre",
+            ),
+        ),
+        (
+            "sqft",
+            (
+                "sqft",
+                "sqfeet",
+                "squarefeet",
+                "squarefoot",
+            ),
+        ),
         ("marla", ("marla",)),
         ("kanal", ("kanal",)),
         ("ground", ("ground",)),
@@ -104,97 +158,143 @@ def _detect_area_unit(text: str) -> str | None:
         ("biswa", ("biswa",)),
         ("aankadam", ("aankadam", "ankanam")),
     )
-    for unit, aliases in patterns:
+
+    for unit, aliases in unit_patterns:
         if any(alias in normalized for alias in aliases):
             return unit
+
     return None
 
 
 def parse_area_sqft(value: Any) -> float:
-    """Parse a supported area value and convert it to square feet."""
+    """Convert a supported property area into square feet."""
 
-    if _missing(value):
+    if _is_missing(value):
         return np.nan
+
     if isinstance(value, int | float | np.number):
-        numeric = float(value)
-        return numeric if np.isfinite(numeric) and numeric > 0 else np.nan
+        area = float(value)
+        return area if np.isfinite(area) and area > 0 else np.nan
 
     text = str(value).strip().lower().replace(",", "")
+
     match = re.search(r"\d+(?:\.\d+)?", text)
-    if not match:
+
+    if match is None:
         return np.nan
-    number = float(match.group())
+
+    amount = float(match.group())
     unit = _detect_area_unit(text)
+
     if unit in AMBIGUOUS_AREA_UNITS or unit is None:
         return np.nan
-    result = number * AREA_UNIT_FACTORS[unit]
-    return result if np.isfinite(result) and result > 0 else np.nan
+
+    converted_area = amount * AREA_UNIT_FACTORS[unit]
+
+    return (
+        converted_area
+        if np.isfinite(converted_area) and converted_area > 0
+        else np.nan
+    )
 
 
 def _parse_floor_token(token: str) -> float:
-    token = token.strip().lower()
-    if "basement" in token:
+    """Convert a single floor label into a numeric representation."""
+
+    value = token.strip().lower()
+
+    if "basement" in value:
         return -1.0
-    if token == "ground" or token.startswith("ground "):
+
+    if value == "ground" or value.startswith("ground "):
         return 0.0
-    match = re.search(r"-?\d+", token)
+
+    match = re.search(r"-?\d+", value)
+
     return float(match.group()) if match else np.nan
 
 
 def parse_floor(value: Any) -> tuple[float, float]:
-    """Parse current and total floors, supporting ground and basement labels."""
+    """Extract current floor and total floors from a raw floor value."""
 
-    if _missing(value):
+    if _is_missing(value):
         return np.nan, np.nan
+
     text = str(value).strip()
+
     if not text:
         return np.nan, np.nan
-    parts = re.split(r"\s+out\s+of\s+", text, maxsplit=1, flags=re.IGNORECASE)
-    current = _parse_floor_token(parts[0])
-    total = _parse_floor_token(parts[1]) if len(parts) == 2 else np.nan
-    return current, total
+
+    parts = re.split(
+        r"\s+out\s+of\s+",
+        text,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )
+
+    current_floor = _parse_floor_token(parts[0])
+
+    total_floors = (
+        _parse_floor_token(parts[1])
+        if len(parts) == 2
+        else np.nan
+    )
+
+    return current_floor, total_floors
 
 
 def parse_count(value: Any) -> float:
-    """Parse integer-like bathroom or balcony values, including '> 10'."""
+    """Extract a numeric count from values such as bathroom or balcony data."""
 
-    if _missing(value):
+    if _is_missing(value):
         return np.nan
-    match = re.search(r"\d+", str(value))
-    if not match:
+
+    text = str(value)
+    match = re.search(r"\d+", text)
+
+    if match is None:
         return np.nan
-    number = float(match.group())
-    if ">" in str(value):
-        number += 1
-    return number
+
+    count = float(match.group())
+
+    if ">" in text:
+        count += 1
+
+    return count
 
 
 def parse_parking(value: Any) -> float:
-    """Parse private parking count; treat implausible communal counts as missing."""
+    """Parse parking count and discard implausible values."""
 
-    number = parse_count(value)
-    if np.isnan(number) or number < 0 or number > 10:
+    count = parse_count(value)
+
+    if np.isnan(count) or count < 0 or count > 10:
         return np.nan
-    return number
+
+    return count
 
 
 def normalize_category(value: Any) -> str | float:
-    """Normalize categorical whitespace while retaining missing values for imputation."""
+    """Normalize categorical text while preserving missing values."""
 
-    if _missing(value):
+    if _is_missing(value):
         return np.nan
-    text = re.sub(r"\s+", " ", str(value)).strip()
-    return text if text else np.nan
+
+    normalized = re.sub(
+        r"\s+",
+        " ",
+        str(value),
+    ).strip()
+
+    return normalized if normalized else np.nan
 
 
-def clean_raw_listings(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
-    """Create the modeling population and return transparent row-removal counts.
+def clean_raw_listings(
+    raw: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Clean raw property listings and return row-removal statistics."""
 
-    Only deterministic format/plausibility rules are applied to the full population. Target-
-    derived price-per-square-foot outlier bounds are learned later from the training split only.
-    """
-
-    required = {
+    required_columns = {
         "Amount(in rupees)",
         "location",
         "Carpet Area",
@@ -207,96 +307,256 @@ def clean_raw_listings(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]
         "Ownership",
         "facing",
     }
-    missing_columns = sorted(required.difference(raw.columns))
+
+    missing_columns = sorted(
+        required_columns.difference(raw.columns)
+    )
+
     if missing_columns:
-        raise ValueError(f"Missing required raw columns: {missing_columns}")
+        raise ValueError(
+            f"Missing required raw columns: {missing_columns}"
+        )
 
-    counts: dict[str, int] = {"raw_rows": len(raw)}
-    duplicate_basis = [column for column in raw.columns if column != "Index"]
-    deduplicated_raw = raw.drop_duplicates(subset=duplicate_basis).copy()
-    counts["duplicate_source_rows"] = len(raw) - len(deduplicated_raw)
+    counts: dict[str, int] = {
+        "raw_rows": len(raw),
+    }
 
-    cleaned = pd.DataFrame(index=deduplicated_raw.index)
-    cleaned[TARGET_COLUMN] = deduplicated_raw["Amount(in rupees)"].map(parse_price_rupees)
-    cleaned["carpet_area_sqft"] = deduplicated_raw["Carpet Area"].map(parse_area_sqft)
+    duplicate_columns = [
+        column
+        for column in raw.columns
+        if column != "Index"
+    ]
 
-    floors = deduplicated_raw["Floor"].map(parse_floor)
-    cleaned["floor_num"] = floors.map(lambda value: value[0])
-    cleaned["total_floors"] = floors.map(lambda value: value[1])
-    cleaned["bathroom"] = deduplicated_raw["Bathroom"].map(parse_count)
-    cleaned["balcony"] = deduplicated_raw["Balcony"].map(parse_count)
-    cleaned["parking"] = deduplicated_raw["Car Parking"].map(parse_parking)
+    source_data = raw.drop_duplicates(
+        subset=duplicate_columns
+    ).copy()
 
-    source_columns = {
+    counts["duplicate_source_rows"] = (
+        len(raw) - len(source_data)
+    )
+
+    cleaned = pd.DataFrame(index=source_data.index)
+
+    cleaned[TARGET_COLUMN] = source_data[
+        "Amount(in rupees)"
+    ].map(parse_price_rupees)
+
+    cleaned["carpet_area_sqft"] = source_data[
+        "Carpet Area"
+    ].map(parse_area_sqft)
+
+    floors = source_data["Floor"].map(parse_floor)
+
+    cleaned["floor_num"] = floors.map(
+        lambda item: item[0]
+    )
+
+    cleaned["total_floors"] = floors.map(
+        lambda item: item[1]
+    )
+
+    cleaned["bathroom"] = source_data[
+        "Bathroom"
+    ].map(parse_count)
+
+    cleaned["balcony"] = source_data[
+        "Balcony"
+    ].map(parse_count)
+
+    cleaned["parking"] = source_data[
+        "Car Parking"
+    ].map(parse_parking)
+
+    source_mapping = {
         "location": "location",
         "furnishing": "Furnishing",
         "transaction": "Transaction",
         "ownership": "Ownership",
         "facing": "facing",
     }
-    for output, source in source_columns.items():
-        cleaned[output] = deduplicated_raw[source].map(normalize_category)
 
-    valid_target = cleaned[TARGET_COLUMN].notna() & (cleaned[TARGET_COLUMN] >= 100_000)
-    counts["unusable_target_rows"] = int((~valid_target).sum())
+    for destination, source in source_mapping.items():
+        cleaned[destination] = source_data[
+            source
+        ].map(normalize_category)
+
+    valid_target = (
+        cleaned[TARGET_COLUMN].notna()
+        & (cleaned[TARGET_COLUMN] >= 100_000)
+    )
+
+    counts["unusable_target_rows"] = int(
+        (~valid_target).sum()
+    )
+
     cleaned = cleaned.loc[valid_target].copy()
 
-    valid_area = cleaned["carpet_area_sqft"].between(100, 20_000, inclusive="both")
-    counts["missing_or_implausible_carpet_area_rows"] = int((~valid_area).sum())
+    valid_area = cleaned["carpet_area_sqft"].between(
+        100,
+        20_000,
+        inclusive="both",
+    )
+
+    counts["missing_or_implausible_carpet_area_rows"] = int(
+        (~valid_area).sum()
+    )
+
     cleaned = cleaned.loc[valid_area].copy()
 
-    # A deliberately broad, fixed integrity rule removes only obvious unit/zero corruption.
-    # Tighter 1st/99th percentile bounds are learned later from the training split alone.
-    gross_price_per_sqft = cleaned[TARGET_COLUMN] / cleaned["carpet_area_sqft"]
-    grossly_plausible = gross_price_per_sqft.between(100, 500_000, inclusive="both")
-    counts["grossly_implausible_price_area_rows"] = int((~grossly_plausible).sum())
-    cleaned = cleaned.loc[grossly_plausible].copy()
+    price_per_sqft = (
+        cleaned[TARGET_COLUMN]
+        / cleaned["carpet_area_sqft"]
+    )
 
-    sale_transaction = ~cleaned["transaction"].eq("Rent/Lease")
-    counts["rental_rows"] = int((~sale_transaction).sum())
-    cleaned = cleaned.loc[sale_transaction].copy()
+    plausible_price_area = price_per_sqft.between(
+        100,
+        500_000,
+        inclusive="both",
+    )
 
-    cleaned.loc[~cleaned["floor_num"].between(-1, 100), "floor_num"] = np.nan
-    cleaned.loc[~cleaned["total_floors"].between(1, 100), "total_floors"] = np.nan
-    cleaned.loc[~cleaned["bathroom"].between(1, 11), "bathroom"] = np.nan
-    cleaned.loc[~cleaned["balcony"].between(0, 11), "balcony"] = np.nan
+    counts["grossly_implausible_price_area_rows"] = int(
+        (~plausible_price_area).sum()
+    )
+
+    cleaned = cleaned.loc[plausible_price_area].copy()
+
+    sale_rows = ~cleaned["transaction"].eq("Rent/Lease")
+
+    counts["rental_rows"] = int(
+        (~sale_rows).sum()
+    )
+
+    cleaned = cleaned.loc[sale_rows].copy()
+
+    cleaned.loc[
+        ~cleaned["floor_num"].between(-1, 100),
+        "floor_num",
+    ] = np.nan
+
+    cleaned.loc[
+        ~cleaned["total_floors"].between(1, 100),
+        "total_floors",
+    ] = np.nan
+
+    cleaned.loc[
+        ~cleaned["bathroom"].between(1, 11),
+        "bathroom",
+    ] = np.nan
+
+    cleaned.loc[
+        ~cleaned["balcony"].between(0, 11),
+        "balcony",
+    ] = np.nan
 
     cleaned = cleaned.reset_index(drop=True)
+
     counts["modeling_rows"] = len(cleaned)
-    return cleaned[[*FEATURE_NAMES, TARGET_COLUMN]], counts
+
+    return (
+        cleaned[[*FEATURE_NAMES, TARGET_COLUMN]],
+        counts,
+    )
 
 
-class RareCategoryGrouper(BaseEstimator, TransformerMixin):
-    """Learn frequent values during fit and map rare/unseen values to ``Other``."""
+class RareCategoryGrouper(
+    BaseEstimator,
+    TransformerMixin,
+):
+    """Group infrequent and unseen categories under a shared label."""
 
-    def __init__(self, min_count: int = 100, other_label: str = "Other") -> None:
+    def __init__(
+        self,
+        min_count: int = 100,
+        other_label: str = "Other",
+    ) -> None:
         self.min_count = min_count
         self.other_label = other_label
 
-    def fit(self, X: Any, y: Any = None) -> RareCategoryGrouper:
+    def fit(
+        self,
+        X: Any,
+        y: Any = None,
+    ) -> RareCategoryGrouper:
+        """Identify categories that occur frequently enough to retain."""
+
         del y
-        series = self._as_series(X)
-        counts = series.value_counts()
-        self.frequent_categories_ = sorted(counts[counts >= self.min_count].index.tolist())
+
+        values = self._to_series(X)
+        counts = values.value_counts()
+
+        self.frequent_categories_ = sorted(
+            counts[
+                counts >= self.min_count
+            ].index.tolist()
+        )
+
         return self
 
     def transform(self, X: Any) -> np.ndarray:
-        if not hasattr(self, "frequent_categories_"):
-            raise RuntimeError("RareCategoryGrouper must be fitted before transform.")
-        series = self._as_series(X)
-        grouped = series.where(series.isin(self.frequent_categories_), self.other_label)
-        return grouped.to_numpy(dtype=object).reshape(-1, 1)
+        """Replace rare and unseen categories with ``other_label``."""
 
-    def get_feature_names_out(self, input_features: Iterable[str] | None = None) -> np.ndarray:
-        name = next(iter(input_features), "location") if input_features else "location"
-        return np.asarray([name], dtype=object)
+        if not hasattr(
+            self,
+            "frequent_categories_",
+        ):
+            raise RuntimeError(
+                "RareCategoryGrouper must be fitted before transform."
+            )
 
-    def _as_series(self, values: Any) -> pd.Series:
+        values = self._to_series(X)
+
+        grouped = values.where(
+            values.isin(self.frequent_categories_),
+            self.other_label,
+        )
+
+        return grouped.to_numpy(
+            dtype=object
+        ).reshape(-1, 1)
+
+    def get_feature_names_out(
+        self,
+        input_features: Iterable[str] | None = None,
+    ) -> np.ndarray:
+        """Return the output feature name used by the transformer."""
+
+        if input_features:
+            feature_name = next(
+                iter(input_features)
+            )
+        else:
+            feature_name = "location"
+
+        return np.asarray(
+            [feature_name],
+            dtype=object,
+        )
+
+    def _to_series(self, values: Any) -> pd.Series:
+        """Convert supported input formats into a normalized Series."""
+
         if isinstance(values, pd.DataFrame):
             series = values.iloc[:, 0]
+
         elif isinstance(values, pd.Series):
             series = values
+
         else:
-            array = np.asarray(values, dtype=object)
-            series = pd.Series(array.reshape(-1))
-        return series.fillna(self.other_label).astype(str).str.strip().replace("", self.other_label)
+            array = np.asarray(
+                values,
+                dtype=object,
+            )
+            series = pd.Series(
+                array.reshape(-1)
+            )
+
+        return (
+            series
+            .fillna(self.other_label)
+            .astype(str)
+            .str.strip()
+            .replace(
+                "",
+                self.other_label,
+            )
+        )
