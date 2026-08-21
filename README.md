@@ -1,26 +1,62 @@
-# ITI Artificial Intelligence Portfolio
+# House Price Predictor
 
-This repository presents four completed artificial intelligence notebooks from the ITI program: two classical machine-learning projects and two convolutional neural network projects. Each notebook includes its saved outputs, charts, and verified evaluation results so it can be reviewed directly on GitHub.
+An end-to-end machine learning application for predicting house prices in India. The project combines a trained regression model with a FastAPI backend and a React frontend to provide an interactive house price prediction experience.
 
 **Status: Ready for instructor review. All notebooks include verified saved outputs; raw datasets and large training checkpoints are intentionally excluded.**
 
-## Repository structure
+## Project Structure
 
 ```text
-iti-ai-portfolio/
+ITI_AI_2026/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
+│
 ├── ML/
 │   ├── README.md
 │   ├── 01_Bank_Customer_Churn_Classification.ipynb
 │   └── 02_Bengaluru_House_Price_Regression.ipynb
+│
 ├── CNN/
 │   ├── README.md
 │   ├── 01_CIFAR10_Baseline_CNN.ipynb
 │   └── 02_CIFAR10_Improved_CNN.ipynb
+│
 └── Final-Project/
-    └── README.md
+    ├── README.md
+    ├── docker-compose.yml
+    ├── pyproject.toml
+    │
+    ├── backend/
+    │   ├── app/
+    │   │   ├── api/
+    │   │   ├── core/
+    │   │   ├── schemas/
+    │   │   ├── services/
+    │   │   └── utils/
+    │   └── tests/
+    │
+    ├── frontend/
+    │   ├── src/
+    │   ├── e2e/
+    │   └── package.json
+    │
+    ├── models/
+    │   ├── house_price.pkl
+    │   ├── locations.json
+    │   └── model_metadata.json
+    │
+    ├── notebooks/
+    │   ├── house_price_model.ipynb
+    │   └── data/
+    │
+    ├── docs/
+    │   └── screenshots/
+    │
+    └── scripts/
+        ├── build_notebook.py
+        ├── smoke_test.py
+        └── verify_project.py
 ```
 
 ## Machine Learning
