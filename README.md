@@ -58,6 +58,44 @@ ITI_AI_2026/
         ├── smoke_test.py
         └── verify_project.py
 ```
+## Architecture
+
+```text
+┌─────────────────────┐
+│      React UI       │
+│   House Price Form  │
+└──────────┬──────────┘
+           │ HTTP Request
+           ▼
+┌─────────────────────┐
+│     FastAPI API     │
+│   /predict endpoint │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│    Preprocessing    │
+│ Feature preparation │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Trained ML Model  │
+│    house_price.pkl  │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Prediction Result │
+│    Price Response   │
+└──────────┬──────────┘
+           │ JSON Response
+           ▼
+┌─────────────────────┐
+│      React UI       │
+│   Display Prediction│
+└─────────────────────┘
+```
 
 ## Machine Learning
 
