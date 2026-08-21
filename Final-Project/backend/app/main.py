@@ -1,4 +1,4 @@
-"""FastAPI entry point for the India House Price Predictor."""
+"""Main FastAPI application for the house price prediction service."""
 
 from __future__ import annotations
 
@@ -15,54 +15,74 @@ from backend.app.schemas.prediction import HealthResponse
 from backend.app.services.inference import InferenceService
 from backend.app.utils.logging_config import configure_logging
 
+
 logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    """Application factory with an injectable configuration for tests."""
+    """Create and configure the FastAPI application."""
 
-    resolved = settings or get_settings()
-    configure_logging(resolved.log_level)
+    config = settings if settings is not None else get_settings()
+    configure_logging(config.log_level)
 
     @asynccontextmanager
-    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-        logger.info("Loading trusted local model artifacts")
-        application.state.inference = InferenceService.load(
-            resolved.model_path,
-            resolved.locations_path,
-            resolved.metadata_path,
+    async def app_lifespan(application: FastAPI) -> AsyncIterator[None]:
+        """Load the model resources when the application starts."""
+
+        logger.info("Starting application and loading model resources")
+
+        inference_service = InferenceService.load(
+            config.model_path,
+            config.locations_path,
+            config.metadata_path,
         )
-        logger.info("Model artifacts loaded")
+
+        application.state.inference = inference_service
+
+        logger.info("Model resources loaded successfully")
+
         yield
+
+        logger.info("Shutting down application")
         application.state.inference = None
 
-    application = FastAPI(
-        title=resolved.app_name,
+    app_instance = FastAPI(
+        title=config.app_name,
         version="1.0.0",
         description=(
-            "Educational Indian house-price estimates. Predictions are informational and are not "
-            "professional appraisals or investment advice."
+            "API for estimating house prices in India using a trained "
+            "machine learning model. Predictions are provided for "
+            "informational and educational purposes."
         ),
-        lifespan=lifespan,
+        lifespan=app_lifespan,
     )
-    application.add_middleware(
+
+    app_instance.add_middleware(
         CORSMiddleware,
-        allow_origins=resolved.cors_origins,
+        allow_origins=config.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
-    application.include_router(prediction_router)
 
-    @application.get("/health", response_model=HealthResponse, tags=["health"])
-    def health(request: Request) -> HealthResponse:
-        service = request.app.state.inference
+    app_instance.include_router(prediction_router)
+
+    @app_instance.get(
+        "/health",
+        response_model=HealthResponse,
+        tags=["health"],
+    )
+    def health_check(request: Request) -> HealthResponse:
+        """Return the current model loading status."""
+
+        inference = request.app.state.inference
+
         return HealthResponse(
-            model_loaded=isinstance(service, InferenceService),
-            model_version=service.model_version,
+            model_loaded=isinstance(inference, InferenceService),
+            model_version=inference.model_version,
         )
 
-    return application
+    return app_instance
 
 
 app = create_app()
