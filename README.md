@@ -144,8 +144,8 @@ The notebooks retain their valid saved outputs, plots, training histories, and v
 
 ## Limitations
 
-- The churn classifier's recall is 0.5577, so it misses a meaningful share of positive churn cases.
-- The Bengaluru model drops from validation to test performance and is not a production-grade pricing model.
-- The baseline CNN is intentionally compact and reaches lower accuracy than the improved model.
-- The improved CNN's final evaluation was reproduced from its validation-selected checkpoint; the complete 70-epoch CPU retraining was not repeated during the audit, and the checkpoint is not published.
+- The churn model achieves a recall of 0.5577, which means that a noticeable number of customers who are likely to churn may not be identified.
+- The Bengaluru house price model performs better on the validation set than on the test set, so it should not be considered suitable for production-level price estimation.
+- The baseline CNN uses a simpler architecture and therefore achieves lower accuracy compared with the improved version.
+- The improved CNN results were obtained by evaluating the checkpoint selected during validation. A full 70-epoch training run on CPU was not repeated during the final verification, and the trained checkpoint is not included in the repository.
 
