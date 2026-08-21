@@ -1,4 +1,4 @@
-"""API endpoints for house price predictions and available locations."""
+"""Routes for property predictions and supported locations."""
 
 from __future__ import annotations
 
@@ -18,30 +18,34 @@ router = APIRouter(
 )
 
 
-def get_inference_service(request: Request) -> InferenceService:
-    """Return the initialized inference service for the current application."""
+def get_inference_service(
+    request: Request,
+) -> InferenceService:
+    """Get the inference service initialized during application startup."""
 
-    inference_service = getattr(
+    service = getattr(
         request.app.state,
         "inference",
         None,
     )
 
-    if not isinstance(inference_service, InferenceService):
+    if not isinstance(service, InferenceService):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="The prediction service is currently unavailable.",
+            detail="Prediction service is not available.",
         )
 
-    return inference_service
+    return service
 
 
 @router.get(
     "/locations",
     response_model=LocationsResponse,
 )
-def get_locations(request: Request) -> LocationsResponse:
-    """Return the locations supported by the prediction model."""
+def get_locations(
+    request: Request,
+) -> LocationsResponse:
+    """Provide the list of supported property locations."""
 
     service = get_inference_service(request)
 
@@ -58,16 +62,17 @@ def create_prediction(
     payload: PredictionRequest,
     request: Request,
 ) -> PredictionResponse:
-    """Generate a house price prediction from the supplied property data."""
+    """Return a price estimate for the submitted property."""
 
     service = get_inference_service(request)
 
     try:
-        prediction = service.predict(payload)
+        result = service.predict(payload)
+
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to complete the prediction.",
+            detail="Prediction could not be generated.",
         ) from exc
 
-    return prediction
+    return result
