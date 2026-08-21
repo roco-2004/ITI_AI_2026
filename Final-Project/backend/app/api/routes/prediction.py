@@ -1,4 +1,4 @@
-"""Prediction and location API routes."""
+"""API endpoints for house price predictions and available locations."""
 
 from __future__ import annotations
 
@@ -11,34 +11,63 @@ from backend.app.schemas.prediction import (
 )
 from backend.app.services.inference import InferenceService
 
-router = APIRouter(prefix="/api", tags=["prediction"])
+
+router = APIRouter(
+    prefix="/api",
+    tags=["prediction"],
+)
 
 
 def get_inference_service(request: Request) -> InferenceService:
-    """Read the process-wide service initialized by the app lifespan."""
+    """Return the initialized inference service for the current application."""
 
-    service = getattr(request.app.state, "inference", None)
-    if not isinstance(service, InferenceService):
+    inference_service = getattr(
+        request.app.state,
+        "inference",
+        None,
+    )
+
+    if not isinstance(inference_service, InferenceService):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Prediction model is not available.",
+            detail="The prediction service is currently unavailable.",
         )
-    return service
+
+    return inference_service
 
 
-@router.get("/locations", response_model=LocationsResponse)
-def locations(request: Request) -> LocationsResponse:
+@router.get(
+    "/locations",
+    response_model=LocationsResponse,
+)
+def get_locations(request: Request) -> LocationsResponse:
+    """Return the locations supported by the prediction model."""
+
     service = get_inference_service(request)
-    return LocationsResponse(locations=service.locations)
+
+    return LocationsResponse(
+        locations=service.locations,
+    )
 
 
-@router.post("/predict", response_model=PredictionResponse)
-def predict(payload: PredictionRequest, request: Request) -> PredictionResponse:
+@router.post(
+    "/predict",
+    response_model=PredictionResponse,
+)
+def create_prediction(
+    payload: PredictionRequest,
+    request: Request,
+) -> PredictionResponse:
+    """Generate a house price prediction from the supplied property data."""
+
     service = get_inference_service(request)
+
     try:
-        return service.predict(payload)
+        prediction = service.predict(payload)
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Prediction could not be completed safely.",
+            detail="Unable to complete the prediction.",
         ) from exc
+
+    return prediction
