@@ -4,37 +4,50 @@ import type {
   PredictionResponse,
 } from "../types/prediction";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
+async function requestJson<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
-      ...init?.headers,
+      ...(options.headers ?? {}),
     },
   });
 
   if (!response.ok) {
-    let message = `Request failed with status ${response.status}`;
+    let errorMessage = `Request failed with status ${response.status}`;
+
     try {
-      const payload = (await response.json()) as { detail?: string };
-      if (payload.detail) message = payload.detail;
+      const data = (await response.json()) as {
+        detail?: string;
+      };
+
+      if (data.detail) {
+        errorMessage = data.detail;
+      }
     } catch {
-      // Keep the status-based message when a response has no JSON body.
+      // Use the default HTTP status message when the response is not JSON.
     }
-    throw new Error(message);
+
+    throw new Error(errorMessage);
   }
+
   return (await response.json()) as T;
 }
 
-export function fetchLocations(): Promise<LocationsResponse> {
+export const fetchLocations = async (): Promise<LocationsResponse> => {
   return requestJson<LocationsResponse>("/api/locations");
-}
+};
 
-export function predictHouse(payload: PredictionRequest): Promise<PredictionResponse> {
+export const predictHouse = async (
+  payload: PredictionRequest,
+): Promise<PredictionResponse> => {
   return requestJson<PredictionResponse>("/api/predict", {
     method: "POST",
     body: JSON.stringify(payload),
   });
-}
+};
